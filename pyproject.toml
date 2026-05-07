@@ -11,6 +11,7 @@ dependencies = [
     "matplotlib>=3.10.9",
     "nibabel>=5.4.2",
     "numpy>=2.4.4",
+    "scikit-image>=0.26.0",
     "torch>=2.11.0",
     "torchvision>=0.16.0",
 ]
