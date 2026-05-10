@@ -48,26 +48,23 @@ def normalized_modality(brain: np.ndarray):
     brain[brain_mask] = (brain[brain_mask] - mi) / std
     return brain
 
-def pad_to_256(img: torch.Tensor):
-    '''
-    Adds padding to the image. Transforms any image to shape (256,256).
+def pad_to_256(brain: torch.Tensor):
+    """
+    Pads (155, 240, 240) brain volume to (155, 256, 256)
+    """
+    D, H, W = brain.shape
+    assert D == 155 and H == 240 and W == 240
 
-    :param torch.Tensor img: Image vector.
-    '''
-    if img.dim() == 2:
-        img = img.unsqueeze(0)
-
-    _, H, W = img.shape
     pad_h = 256 - H
     pad_w = 256 - W
 
-    pad_top = pad_h // 2
-    pad_bottom = pad_h - pad_top
-    pad_left = pad_w // 2
-    pad_right = pad_w - pad_left
+    pad_ver = pad_h // 2
+    pad_hor = pad_w // 2
 
-    img = F.pad(img, (pad_left, pad_right, pad_top, pad_bottom))
-    return img
+    pad = (pad_ver, pad_ver, pad_hor, pad_hor)
+
+    brain_pad = F.pad(brain,  pad)
+    return brain_pad
 
 def format_index(brain_index: int):
     '''
@@ -77,3 +74,4 @@ def format_index(brain_index: int):
     :param int brain_index: Number to format.
     '''
     return f"{brain_index:03}" 
+
