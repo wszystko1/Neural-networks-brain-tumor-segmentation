@@ -10,6 +10,7 @@ dependencies = [
     "kagglehub>=1.0.1",
     "matplotlib>=3.10.9",
     "monai>=1.5.2",
+    "nbformat>=5.10.4",
     "nibabel>=5.4.2",
     "numpy>=2.4.4",
     "scikit-image>=0.26.0",
