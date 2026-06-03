@@ -3,6 +3,7 @@ from dotenv import dotenv_values,find_dotenv
 from pathlib import Path
 import torch
 import torch.nn.functional as F
+import time
 
 config = dotenv_values(find_dotenv(usecwd=True))
 TR_DATA_PATH = Path(config.get("TR_DATA_PATH"))
@@ -75,3 +76,57 @@ def format_index(brain_index: int):
     '''
     return f"{brain_index:03}" 
 
+
+def diagnose_timing(model, loader, optimizer, criterion, device):
+    model.train()
+    
+    for x, y in loader:
+        print(f"Tensor shape from loader: {x.shape}")
+        
+        t0 = time.time()
+        x, y = x.to(device), y.to(device)
+        torch.cuda.synchronize()  # ← important: forces GPU to finish before timing
+        t1 = time.time()
+
+        logits = model(x)
+        torch.cuda.synchronize()
+        t2 = time.time()
+
+        loss = criterion(logits, y)# .unsqueeze(1)
+        torch.cuda.synchronize()
+        t3 = time.time()
+
+        loss.backward()
+        torch.cuda.synchronize()
+        t4 = time.time()
+
+        optimizer.step()
+        torch.cuda.synchronize()
+        t5 = time.time()
+
+        print(f"  .to(device)  : {t1-t0:.3f}s")
+        print(f"  forward      : {t2-t1:.3f}s")
+        print(f"  loss         : {t3-t2:.3f}s")
+        print(f"  backward     : {t4-t3:.3f}s")
+        print(f"  optim.step   : {t5-t4:.3f}s")
+        print(f"  TOTAL        : {t5-t0:.3f}s")
+
+        print(f"CUDA available : {torch.cuda.is_available()}")
+        print(f"Device         : {device}")
+        print(f"Model device   : {next(model.parameters()).device}")
+        print(f"Data device    : {x.device}")
+        print(f"GPU memory allocated by PyTorch: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+          # only time the first brain
+
+
+
+def get_cache(brain_index, mod):
+    '''
+    load a .pt file to memory from a .env defined path.
+    '''
+    CACHE_DIR = Path(config.get("CACHE_PATH"))
+    cache_path = CACHE_DIR / f"brain_{brain_index:03d}_{mod}.pt"
+
+    if cache_path.exists():
+        return torch.load(cache_path)
+    
