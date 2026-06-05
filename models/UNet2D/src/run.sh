@@ -5,7 +5,7 @@ echo "==> Starting base image services (Jupyter/SSH) in background..."
 /start.sh &
 
 echo "==> Wait for services to start..."
-sleep 2
+sleep 5
 
 # --- Repository setup ---
 REPO_URL="${REPO_URL:?REPO_URL env var is required}"
@@ -50,4 +50,7 @@ echo "==> Running: $MODEL"
 echo "    DATASET_PATH=$DATASET_PATH"
 echo "    SAVE_PATH=$SAVE_PATH"
 
-exec uv run python "$REPO_DIR/$MODEL/src/train.py"
+exec uv run python "$REPO_DIR/models/$MODEL/src/train.py" || {
+    echo "==> Training failed! Keeping container alive..."
+    tail -f /dev/null
+}
