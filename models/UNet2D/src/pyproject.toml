@@ -1,0 +1,33 @@
+[project]
+name = "brain-tumor-segmentation-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dotenv>=0.9.9",
+    "ipykernel>=7.2.0",
+    "kagglehub>=1.0.1",
+    "matplotlib>=3.10.9",
+    "monai>=1.5.2",
+    "nbformat>=5.10.4",
+    "nibabel>=5.4.2",
+    "numpy>=2.4.4",
+    "scikit-image>=0.26.0",
+    "torch>=2.11.0",
+    "torchvision>=0.16.0",
+    "wandb>=0.26.1",
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu128" },
+]
+torchvision = [
+    { index = "pytorch-cu128" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
