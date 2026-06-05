@@ -3,7 +3,4 @@
 
 .venv
 .env
-
-src/data/*
-src/download.ipynb
-src/wandb
+**/wandb/
