@@ -80,8 +80,8 @@ train_sub, val_sub = random_split(dataset, [train_size, val_size])
 print(f"Train split: {len(train_sub)} brains")
 print(f"Val split  : {len(val_sub)} brains")
 
-train_loader = DataLoader(train_sub, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True)
-val_loader = DataLoader(val_sub, batch_size=BATCH_SIZE, shuffle=False, pin_memory=True)
+train_loader = DataLoader(train_sub, batch_size=None, shuffle=True, pin_memory=True)
+val_loader = DataLoader(val_sub, batch_size=None, shuffle=False, pin_memory=True)
 
 CLASS_NAMES = ["background", "necrotic", "edema", "enhancing"]
 
