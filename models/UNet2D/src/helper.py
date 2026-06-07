@@ -116,7 +116,7 @@ def get_cache(brain_index, mod):
 def compute_class_stats(dataset):
     class_counts = torch.zeros(4)
 
-    for idx in dataset.__len__():
+    for idx in range(dataset.__len__()):
         _, _, seg = dataset.data[idx]
         has_tumor = seg.amax(dim=(1, 2)) > 0
         keep = has_tumor
