@@ -16,6 +16,8 @@ MODEL="${MODEL:?MODEL env var is required}"
 # --- Training setup ---
 DATASET_PATH="${DATASET_PATH:-/workspace/dataset}"
 SAVE_PATH="${SAVE_PATH:-/workspace/results}"
+MODEL_VERSION="${MODEL_VERSION:?MODEL_VERSION env var is required}"
+WEIGHTS_VERSION="${WEIGHTS_VERSION:?WEIGHTS_VERSION env var is required}"
 WANDB_API_KEY="${WANDB_API_KEY:?WANDB_API_KEY env var is required}"
 NUM_BRAINS="${NUM_BRAINS:?NUM_BRAINS env var is required}"
 BATCH_SIZE="${BATCH_SIZE:?BATCH_SIZE env var is required}"
@@ -25,6 +27,8 @@ NUM_EPOCHS="${NUM_EPOCHS:?NUM_EPOCHS env var is required}"
 # --- Export so training script inherits them ---
 export DATASET_PATH
 export SAVE_PATH
+export MODEL_VERSION
+export WEIGHTS_VERSION
 export WANDB_API_KEY
 export NUM_BRAINS
 export BATCH_SIZE
@@ -50,7 +54,7 @@ echo "==> Running: $MODEL"
 echo "    DATASET_PATH=$DATASET_PATH"
 echo "    SAVE_PATH=$SAVE_PATH"
 
-exec uv run python "$REPO_DIR/models/$MODEL/src/train.py" || {
-    echo "==> Training failed! Keeping container alive..."
+uv run python "$REPO_DIR/models/$MODEL/src/train.py" || {
+    echo "==> Training failed!"
     tail -f /dev/null
 }

@@ -1,193 +1,124 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
+
+class DoubleConv(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+class DoubleConvNorm(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x):
+        return self.net(x)
 
 class UNet(nn.Module):
     def __init__(self):
         super().__init__()
 
-        # encoding
-        self.econv1 = nn.Conv2d(2, 32, 3, padding=1) # change the input dimensions to match the number of modalities
-        self.econv2 = nn.Conv2d(32, 32, 3, padding=1)
-        
-        self.econv3 = nn.Conv2d(32, 64, 3, padding=1)
-        self.econv4 = nn.Conv2d(64, 64, 3, padding=1)
-        self.max2 = nn.MaxPool2d(2, 2)
-        
-        self.econv5 = nn.Conv2d(64, 128, 3, padding=1)
-        self.econv6 = nn.Conv2d(128, 128, 3, padding=1)
-        self.max3 = nn.MaxPool2d(2, 2)
-        
-        self.econv7 = nn.Conv2d(128, 256, 3, padding=1)
-        self.econv8 = nn.Conv2d(256, 256, 3, padding=1)
+        self.down0 = DoubleConv(2, 32)
+        self.down1 = DoubleConv(32, 64)
+        self.down2 = DoubleConv(64, 128)
+        self.down3 = DoubleConv(128, 256)
 
-        self.econv9 = nn.Conv2d(256, 512, 3, padding=1)
+        self.middle = DoubleConv(256, 512)
 
-        # decoding
-        self.dconv1 = nn.Conv2d(512, 512, 3, padding=1)
+        self.up3 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
+        self.dconv3 = DoubleConv(512, 256)
+        self.up2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
+        self.dconv2 = DoubleConv(256, 128)
+        self.up1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
+        self.dconv1 = DoubleConv(128, 64)
+        self.up0 = nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2)
+        self.dconv0 = DoubleConv(64, 32)
 
-        self.upconv1 = nn.ConvTranspose2d(512, 256, 2, 2)
-        self.dconv2 = nn.Conv2d(512, 256, 3, padding=1)
-        self.dconv3 = nn.Conv2d(256, 256, 3, padding=1)
-        
-        self.upconv2 = nn.ConvTranspose2d(256, 128, 2, 2)
-        self.dconv4 = nn.Conv2d(256, 128, 3, padding=1)
-        self.dconv5 = nn.Conv2d(128, 128, 3, padding=1)
-        
-        self.upconv3 = nn.ConvTranspose2d(128, 64, 2, 2)
-        self.dconv6 = nn.Conv2d(128, 64, 3, padding=1)
-        self.dconv7 = nn.Conv2d(64, 64, 3, padding=1)
+        self.out = nn.Conv2d(32, 4, kernel_size=1)
 
-        self.upconv4 = nn.ConvTranspose2d(64, 32, 2, 2)
-        self.dconv8 = nn.Conv2d(64, 32, 3, padding=1)
-        self.dconv9 = nn.Conv2d(32, 32, 3, padding=1)
-
-        self.dconv10 = nn.Conv2d(32, 4, 1)
-
-        self.relu = nn.ReLU()
         self.maxpool = nn.MaxPool2d(2, 2)
 
     def forward(self, x):
-        x = self.relu(self.econv1(x))
-        x = self.relu(self.econv2(x))
-        x1 = x
-        x = self.maxpool(x)
+        d0 = self.down0(x)
+        x = self.maxpool(d0)
+        d1 = self.down1(x)
+        x = self.maxpool(d1)
+        d2 = self.down2(x)
+        x = self.maxpool(d2)
+        d3 = self.down3(x)
+        x = self.maxpool(d3)
 
-        x = self.relu(self.econv3(x))
-        x = self.relu(self.econv4(x))
-        x2 = x
-        x = self.maxpool(x)
-        
-        x = self.relu(self.econv5(x))
-        x = self.relu(self.econv6(x))
-        x3 = x
-        x = self.maxpool(x)
+        x = self.middle(x)
 
-        x = self.relu(self.econv7(x))
-        x = self.relu(self.econv8(x))
-        x4 = x
-        x = self.maxpool(x)
+        x = self.up3(x)
+        x = self.dconv3(torch.cat([x, d3], dim=1))
+        x = self.up2(x)
+        x = self.dconv2(torch.cat([x, d2], dim=1))
+        x = self.up1(x)
+        x = self.dconv1(torch.cat([x, d1], dim=1))
+        x = self.up0(x)
+        x = self.dconv0(torch.cat([x, d0], dim=1))
 
-        x = self.relu(self.econv9(x))
+        return self.out(x)
 
-        x = self.relu(self.dconv1(x))
-
-        x = self.upconv1(x)
-        x = self.relu(self.dconv2(torch.cat([x4, x], dim=1)))
-        x = self.relu(self.dconv3(x))
-
-        x = self.upconv2(x)
-        x = self.relu(self.dconv4(torch.cat([x3, x], dim=1)))
-        x = self.relu(self.dconv5(x))
-
-        x = self.upconv3(x)
-        x = self.relu(self.dconv6(torch.cat([x2, x], dim=1)))
-        x = self.relu(self.dconv7(x))
-
-        x = self.upconv4(x)
-        x = self.relu(self.dconv8(torch.cat([x1, x], dim=1)))
-        x = self.relu(self.dconv9(x))
-
-        x = self.dconv10(x)
-        return x
-    
 class UNetNorm(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.econv1 = nn.Conv2d(2, 32, 3, padding=1)
-        self.ebn1 = nn.BatchNorm2d(32)
-        self.econv2 = nn.Conv2d(32, 32, 3, padding=1)
-        self.ebn2 = nn.BatchNorm2d(32)
-        
-        self.econv3 = nn.Conv2d(32, 64, 3, padding=1)
-        self.ebn3 = nn.BatchNorm2d(64)
-        self.econv4 = nn.Conv2d(64, 64, 3, padding=1)
-        self.ebn4 = nn.BatchNorm2d(64)
-        
-        self.econv5 = nn.Conv2d(64, 128, 3, padding=1)
-        self.ebn5 = nn.BatchNorm2d(128)
-        self.econv6 = nn.Conv2d(128, 128, 3, padding=1)
-        self.ebn6 = nn.BatchNorm2d(128)
-        
-        self.econv7 = nn.Conv2d(128, 256, 3, padding=1)
-        self.ebn7 = nn.BatchNorm2d(256)
-        self.econv8 = nn.Conv2d(256, 256, 3, padding=1)
-        self.ebn8 = nn.BatchNorm2d(256)
+        self.down0 = DoubleConvNorm(2, 32)
+        self.down1 = DoubleConvNorm(32, 64)
+        self.down2 = DoubleConvNorm(64, 128)
+        self.down3 = DoubleConvNorm(128, 256)
 
-        self.econv9 = nn.Conv2d(256, 512, 3, padding=1)
-        self.ebn9 = nn.BatchNorm2d(512)
+        self.middle = DoubleConvNorm(256, 512)
 
-        self.dconv1 = nn.Conv2d(512, 512, 3, padding=1)
-        self.dbn1 = nn.BatchNorm2d(512)
+        self.up3 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
+        self.dconv3 = DoubleConvNorm(512, 256)
+        self.up2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
+        self.dconv2 = DoubleConvNorm(256, 128)
+        self.up1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
+        self.dconv1 = DoubleConvNorm(128, 64)
+        self.up0 = nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2)
+        self.dconv0 = DoubleConvNorm(64, 32)
 
-        self.upconv1 = nn.ConvTranspose2d(512, 256, 2, 2)
-        self.dconv2 = nn.Conv2d(512, 256, 3, padding=1)
-        self.dbn2 = nn.BatchNorm2d(256)
-        self.dconv3 = nn.Conv2d(256, 256, 3, padding=1)
-        self.dbn3 = nn.BatchNorm2d(256)
-        
-        self.upconv2 = nn.ConvTranspose2d(256, 128, 2, 2)
-        self.dconv4 = nn.Conv2d(256, 128, 3, padding=1)
-        self.dbn4 = nn.BatchNorm2d(128)
-        self.dconv5 = nn.Conv2d(128, 128, 3, padding=1)
-        self.dbn5 = nn.BatchNorm2d(128)
-        
-        self.upconv3 = nn.ConvTranspose2d(128, 64, 2, 2)
-        self.dconv6 = nn.Conv2d(128, 64, 3, padding=1)
-        self.dbn6 = nn.BatchNorm2d(64)
-        self.dconv7 = nn.Conv2d(64, 64, 3, padding=1)
-        self.dbn7 = nn.BatchNorm2d(64)
+        self.out = nn.Conv2d(32, 4, kernel_size=1)
 
-        self.upconv4 = nn.ConvTranspose2d(64, 32, 2, 2)
-        self.dconv8 = nn.Conv2d(64, 32, 3, padding=1)
-        self.dbn8 = nn.BatchNorm2d(32)
-        self.dconv9 = nn.Conv2d(32, 32, 3, padding=1)
-        self.dbn9 = nn.BatchNorm2d(32)
-
-        self.dconv10 = nn.Conv2d(32, 4, 1)
-
-        self.relu = nn.ReLU()
         self.maxpool = nn.MaxPool2d(2, 2)
 
     def forward(self, x):
-        x = self.relu(self.ebn1(self.econv1(x)))
-        x = self.relu(self.ebn2(self.econv2(x)))
-        x1 = x
-        x = self.maxpool(x)
+        d0 = self.down0(x)
+        x = self.maxpool(d0)
+        d1 = self.down1(x)
+        x = self.maxpool(d1)
+        d2 = self.down2(x)
+        x = self.maxpool(d2)
+        d3 = self.down3(x)
+        x = self.maxpool(d3)
 
-        x = self.relu(self.ebn3(self.econv3(x)))
-        x = self.relu(self.ebn4(self.econv4(x)))
-        x2 = x
-        x = self.maxpool(x)
+        x = self.middle(x)
 
-        x = self.relu(self.ebn5(self.econv5(x)))
-        x = self.relu(self.ebn6(self.econv6(x)))
-        x3 = x
-        x = self.maxpool(x)
+        x = self.up3(x)
+        x = self.dconv3(torch.cat([x, d3], dim=1))
+        x = self.up2(x)
+        x = self.dconv2(torch.cat([x, d2], dim=1))
+        x = self.up1(x)
+        x = self.dconv1(torch.cat([x, d1], dim=1))
+        x = self.up0(x)
+        x = self.dconv0(torch.cat([x, d0], dim=1))
 
-        x = self.relu(self.ebn7(self.econv7(x)))
-        x = self.relu(self.ebn8(self.econv8(x)))
-        x4 = x
-        x = self.maxpool(x)
-
-        x = self.relu(self.ebn9(self.econv9(x)))
-        x = self.relu(self.dbn1(self.dconv1(x)))
-
-        x = self.upconv1(x)
-        x = self.relu(self.dbn2(self.dconv2(torch.cat([x4, x], dim=1))))
-        x = self.relu(self.dbn3(self.dconv3(x)))
-
-        x = self.upconv2(x)
-        x = self.relu(self.dbn4(self.dconv4(torch.cat([x3, x], dim=1))))
-        x = self.relu(self.dbn5(self.dconv5(x)))
-
-        x = self.upconv3(x)
-        x = self.relu(self.dbn6(self.dconv6(torch.cat([x2, x], dim=1))))
-        x = self.relu(self.dbn7(self.dconv7(x)))
-
-        x = self.upconv4(x)
-        x = self.relu(self.dbn8(self.dconv8(torch.cat([x1, x], dim=1))))
-        x = self.relu(self.dbn9(self.dconv9(x)))
-
-        x = self.dconv10(x)
-        return x
+        return self.out(x)
