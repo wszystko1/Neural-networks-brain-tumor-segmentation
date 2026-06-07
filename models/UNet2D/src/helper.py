@@ -12,6 +12,7 @@ config = {
 }
 
 UNPROCESSED_DATASET_PATH = Path(config["UNPROCESSED_DATASET_PATH"])
+CLASS_NAMES = ["background", "necrotic", "edema", "enhancing"]
 
 def get_filepath(brain_index: int, mod: str = "t1ce"):
     formated_index = format_index(brain_index)
@@ -103,9 +104,7 @@ def diagnose_timing(model, loader, optimizer, criterion, device):
         print(f"Model device   : {next(model.parameters()).device}")
         print(f"Data device    : {x.device}")
         print(f"GPU memory allocated by PyTorch: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
-          # only time the first brain
-
-
+        # only time the first brain
 
 def get_cache(brain_index, mod):
     DATASET_PATH = Path(config.get("DATASET_PATH"))
@@ -113,4 +112,23 @@ def get_cache(brain_index, mod):
 
     if cache_path.exists():
         return torch.load(cache_path)
-    
+
+def compute_class_stats(dataset):
+    class_counts = torch.zeros(4)
+
+    for idx in dataset.__len__():
+        _, _, seg = dataset.data[idx]
+        has_tumor = seg.amax(dim=(1, 2)) > 0
+        keep = has_tumor
+        seg_kept = seg[keep]
+
+        for c in range(4):
+            class_counts[c] += (seg_kept == c).sum()
+
+    total = class_counts.sum()
+    freq = class_counts / total
+
+    weights_sqrt = 1.0 / torch.sqrt(freq + 1e-8)
+    weights_sqrt = weights_sqrt / weights_sqrt.mean()
+
+    return freq, weights_sqrt

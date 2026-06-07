@@ -1,7 +1,7 @@
 import nibabel as nib
 import numpy as np
 from model import UNet, UNetNorm
-from helper import get_cache
+from helper import get_cache, compute_class_stats
 from inference import infer
 from torch.utils.data import random_split, DataLoader, Dataset
 import torch.optim as optim
@@ -23,6 +23,7 @@ DATASET_PATH = Path(config["DATASET_PATH"])
 SAVE_PATH = Path(config["SAVE_PATH"])
 
 MODEL_VERSION = config["MODEL_VERSION"]
+WEIGHTS_VERSION = config["WEIGHTS_VERSION"]
 NUM_BRAINS = int(config["NUM_BRAINS"])
 BATCH_SIZE = int(config["BATCH_SIZE"])
 
@@ -43,6 +44,11 @@ print(f"Batch size   : {BATCH_SIZE}")
 print(f"LR           : {LR}")
 print(f"Epochs       : {NUM_EPOCHS}")
 print("==============================")
+
+SEED = 42
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
+generator = torch.Generator().manual_seed(SEED)
 
 class CustomDataset(Dataset):
     def __init__(self, path):
@@ -83,12 +89,12 @@ print(f"Dataset loaded: {len(dataset)} brains")
 train_size = int(len(dataset) * 0.9)
 val_size = len(dataset) - train_size
 
-train_sub, val_sub = random_split(dataset, [train_size, val_size])
+train_sub, val_sub = random_split(dataset, [train_size, val_size], generator=generator)
 print(f"Train split: {len(train_sub)} brains")
 print(f"Val split  : {len(val_sub)} brains")
 
-train_loader = DataLoader(train_sub, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True, collate_fn=collate_brains)
-val_loader = DataLoader(val_sub, batch_size=BATCH_SIZE, shuffle=False, pin_memory=True, collate_fn=collate_brains)
+train_loader = DataLoader(train_sub, batch_size=BATCH_SIZE, shuffle=True, generator=generator, pin_memory=True, collate_fn=collate_brains)
+val_loader = DataLoader(val_sub, batch_size=BATCH_SIZE, shuffle=False, generator=generator, pin_memory=True, collate_fn=collate_brains)
 
 CLASS_NAMES = ["background", "necrotic", "edema", "enhancing"]
 
@@ -178,31 +184,28 @@ print(f"Model parameters: {num_params:,}")
 
 optimizer = optim.Adam(model.parameters(), lr = LR)
 
-# criterion = DiceFocalLoss(
-#     to_onehot_y=True,
-#     softmax=True,
-#     squared_pred=True,
-#     gamma=2.0,       # focal strength, the higher it is the more it focuses on hard examples
-#     lambda_dice=0.5, # balance between Dice and Focal terms
-#     lambda_focal=0.5,
-# )
+freq, w_sqrt = compute_class_stats(train_sub)
+print("\n=== CLASS FREQUENCY (TRAIN) ===")
+for i, name in enumerate(CLASS_NAMES):
+    print(f"{name:12s} freq={freq[i].item():.6f}")
 
-class_weights = torch.tensor([0.1, 2.0, 2.0, 2.0], device=device)
-criterion = nn.CrossEntropyLoss(
-    weight=class_weights
+print("\n=== WEIGHTS ===")
+print("Sqrt freq:", w_sqrt)
+
+default_weights = torch.tensor([0.1, 2.0, 2.0, 2.0], device=device)
+class_weights = (
+    w_sqrt.to(device)
+    if WEIGHTS_VERSION == "TUNED"
+    else default_weights
 )
-# criterion = DiceCELoss(
-#     to_onehot_y=True,
-#     softmax=True,
-#     squared_pred=True,
-#     weight=class_weights,
-# )
+
+criterion = nn.CrossEntropyLoss(weight=class_weights)
 
 run = wandb.init(
     project="Brain-tumor-segmentation",
     config={
         "learning_rate": LR,
-        "architecture": "UNET",
+        "architectaure": "UNET",
         "dataset": "BraTS2020",
         "loss" : "weighted nn.CrossEntropy",
         "loss ratio" : "None", # CHANGE THIS TO MATCH THE DICE/ENTOPY RATIO IN THE LOSS FUNCTION WHEN ITS ADDED 
