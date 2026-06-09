@@ -1,6 +1,6 @@
 import nibabel as nib
 import numpy as np
-from model import UNet, UNetNorm
+from models import UNet, UNetNorm, UNetResNet
 from helper import get_cache, compute_class_stats
 from inference import infer
 from torch.utils.data import random_split, DataLoader, Dataset
@@ -52,7 +52,7 @@ torch.cuda.manual_seed_all(SEED)
 generator = torch.Generator().manual_seed(SEED)
 
 class CustomDataset(Dataset):
-    def __init__(self, path):
+    def __init__(self):
         super().__init__()
         self.data = []
         print("Loading all brains into RAM...")
@@ -84,7 +84,7 @@ def collate_brains(batch):
     return xs, ys
 
 print("Creating dataset...")
-dataset = CustomDataset(DATASET_PATH)
+dataset = CustomDataset()
 print(f"Dataset loaded: {len(dataset)} brains")
 
 train_size = int(len(dataset) * 0.9)
@@ -175,6 +175,7 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
 models = {
     "UNet" : UNet(),
     "UNetNorm": UNetNorm(),
+    "UNetResNet": UNetResNet()
 }
 
 print(f"Creating model...")
@@ -206,7 +207,7 @@ run = wandb.init(
     project="Brain-tumor-segmentation",
     config={
         "learning_rate": LR,
-        "architectaure": "UNET",
+        "architecture": "UNET",
         "dataset": "BraTS2020",
         "loss" : "weighted nn.CrossEntropy",
         "loss ratio" : "None", # CHANGE THIS TO MATCH THE DICE/ENTOPY RATIO IN THE LOSS FUNCTION WHEN ITS ADDED 
@@ -218,10 +219,23 @@ run = wandb.init(
 )
 print(f"W&B run: {run.name}")
 
+best_val_loss = float("inf")
+run_number = int(run.name.split("-")[-1])
+
 print("Starting training...")
 for epoch in range(NUM_EPOCHS):
     tr_loss, tr_dice = train_one_epoch(model, train_loader, optimizer, criterion, device)
     val_loss, val_dice = evaluate(model, val_loader, criterion, device)
+
+    if val_loss < best_val_loss:
+        best_val_loss = val_loss
+        checkpoint = {
+            "epoch": NUM_EPOCHS,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+        }
+        checkpoint_path = f"{SAVE_PATH}/unet_checkpoint_{run_number}.pth"
+        torch.save(checkpoint, checkpoint_path)
 
     log_dict = {
         "epoch": epoch + 1,
@@ -243,18 +257,4 @@ for epoch in range(NUM_EPOCHS):
     )
 
 print("Training finished.")
-run_number = int(run.name.split("-")[-1])
 run.finish()
-
-checkpoint = {
-    "epoch": NUM_EPOCHS,
-    "model_state_dict": model.state_dict(),
-    "optimizer_state_dict": optimizer.state_dict(),
-}
-
-checkpoint_path = f"{SAVE_PATH}/unet_checkpoint_{run_number}.pth"
-print(f"Saving checkpoint to: {checkpoint_path}")
-
-torch.save(checkpoint, checkpoint_path)
-
-# infer(device, 13,[val_sub.indices[i] + 1 for i in range(6)])

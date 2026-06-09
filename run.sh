@@ -54,7 +54,9 @@ echo "==> Running: $MODEL"
 echo "    DATASET_PATH=$DATASET_PATH"
 echo "    SAVE_PATH=$SAVE_PATH"
 
-uv run python "$REPO_DIR/models/$MODEL/src/train.py" || {
-    echo "==> Training failed!"
-    tail -f /dev/null
-}
+echo ""
+echo "==> Setup complete. Container is ready."
+echo "    To start training, run:  /run_training.sh"
+echo ""
+# Keep container alive indefinitely
+tail -f /dev/null
