@@ -1,4 +1,4 @@
-from model import UNet, UNetNorm, UNetResNet
+from models import UNet, UNetNorm, UNetResNet
 
 def create_model(model_version):
     models = {
