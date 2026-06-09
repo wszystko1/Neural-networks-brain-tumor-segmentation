@@ -113,9 +113,10 @@ def main():
 
         unfreeze_layers(model, "layer0", "layer1", "layer2")
         model.load_state_dict(torch.load(best_path)["model_state_dict"])
+        
         optimizer, scheduler = make_optimizer_and_scheduler(
             [
-                {"params": [*model.layer0.parameters(),
+                {"params": [*model.layer0_conv.parameters(),
                             *model.layer1.parameters(),
                             *model.layer2.parameters()], "lr": LR * 0.01},
                 {"params": [*model.layer3.parameters(),
