@@ -1,5 +1,5 @@
 from helper import get_cache
-from model import UNet
+from models import UNet, UNetNorm, UNetResNet
 import torch
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -18,8 +18,14 @@ SAVE_PATH = Path(config["SAVE_PATH"])
 SEG_CMAP = ListedColormap(["black", "red", "green", "yellow"])
 SEG_LABELS = ["Background", "Necrotic", "Edema", "Enhancing"]
 
-def infer(device: torch.device, run_number: int, brain_numbers: list):
-    model = UNet().to(device)
+MODELS = {
+    "UNet": UNet,
+    "UNetNorm": UNetNorm,
+    "UNetResNet": UNetResNet,
+}
+
+def infer(device: torch.device, run_number: int, brain_numbers: list, model_version: str):
+    model = MODELS[model_version]().to(device)
     checkpoint = torch.load(f"{SAVE_PATH}/unet_checkpoint_{run_number}.pth", map_location=device)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
