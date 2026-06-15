@@ -56,12 +56,6 @@ def pad_to_256(brain: torch.Tensor):
     return brain_pad
 
 def format_index(brain_index: int):
-    '''
-    Formats the number to lenght 3, filling it with 0 from the left side.
-    Example: '7' -> '007'
-
-    :param int brain_index: Number to format.
-    '''
     return f"{brain_index:03}" 
 
 
@@ -73,7 +67,7 @@ def diagnose_timing(model, loader, optimizer, criterion, device):
         
         t0 = time.time()
         x, y = x.to(device), y.to(device)
-        torch.cuda.synchronize()  # ← important: forces GPU to finish before timing
+        torch.cuda.synchronize()  # forces GPU to finish before timing
         t1 = time.time()
 
         logits = model(x)

@@ -36,7 +36,7 @@ def preprocess_and_cache(brain_index, mod, save_original=False):
     # Capture original slice before crop (only when needed for preview)
     orig_slice = brain[PREVIEW_SLICE].clone() if save_original else None
 
-    # ── Crop to bounding box ──────────────────────────────────────────────
+    # Crop to bounding box
     brain = brain[:, CROP_X[0]:CROP_X[1], CROP_Y[0]:CROP_Y[1]]  # (155, 155, 194)
 
     if mod != "seg":
@@ -62,23 +62,22 @@ def preprocess_and_cache(brain_index, mod, save_original=False):
 
 
 def save_comparison_png(brain_index, mod, brain_cropped, orig_slice):
-    """Side-by-side: original slice with crop box overlay  vs  cropped+resized."""
     orig_np = orig_slice.numpy()                             # (240, 240)
     cmap = 'gray' if mod != "seg" else 'tab10'
 
     if mod != "seg":
-        cropped_np = brain_cropped[PREVIEW_SLICE, 0].numpy()  # (128, 128) — has channel dim
+        cropped_np = brain_cropped[PREVIEW_SLICE, 0].numpy()  # (128, 128)
     else:
         cropped_np = brain_cropped[PREVIEW_SLICE].numpy()     # (128, 128)
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
     fig.suptitle(f"Brain {brain_index:03d} | {mod} | slice {PREVIEW_SLICE}", fontsize=13)
 
-    # Left — original with red bounding box overlay
+    # Left original with red bounding box overlay
     axes[0].imshow(orig_np, cmap=cmap, origin='upper')
     axes[0].set_title(f"Original ({orig_np.shape[0]}x{orig_np.shape[1]})")
     rect = plt.Rectangle(
-        (CROP_Y[0], CROP_X[0]),          # (col, row) — imshow uses (x=col, y=row)
+        (CROP_Y[0], CROP_X[0]),          # (col, row)
         CROP_Y[1] - CROP_Y[0],           # width  = 194
         CROP_X[1] - CROP_X[0],           # height = 155
         linewidth=2, edgecolor='red', facecolor='none', label='Crop region'
